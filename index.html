@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whack-a-Leo</title>
+  <style>
+    body, html {
+      font-family: "Arial", sans-serif;
+      text-align: center;
+      background: linear-gradient(to bottom, #87ceeb 0%, #f0f8ff 100%);
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: auto;
+      cursor: default;
+      touch-action: none; 
+    }
+    h1 { margin: 5px 0; }
+    button { 
+      font-size: 18px; 
+      padding: 10px 20px; 
+      margin: 5px; 
+      border: none; 
+      color: white;
+      background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%);
+      border-radius: 15px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2); 
+      cursor: pointer; 
+      transition: all 0.3s ease;
+    }
+    button:hover { transform: translateY(-2px); box-shadow: 0 6px 8px rgba(0,0,0,0.3);}
+    #language-select {
+        margin: 10px auto;
+        padding: 5px;
+        font-size: 14px;
+        border-radius: 5px;
+    }
+    .info-container { display:flex; flex-wrap: wrap; justify-content:space-between; width:90%; max-width:500px; margin:0 auto 15px;}
+    .info-item { font-size: 18px; padding:5px; width:50%; box-sizing:border-box; text-align:center;}
+    .info-item:nth-child(odd) { text-align:left;}
+    .info-item:nth-child(even) { text-align:right;}
+    #score-change { font-size:30px; font-weight:bold; margin:5px; height:35px; opacity:0; transition: opacity 0.5s ease-in-out;}
+    .positive{color:green;} .negative{color:red;}
+    .game { display:grid; grid-template-columns:repeat(3,1fr); gap:15px; width:95%; max-width:500px; margin:15px auto; position:relative; padding-bottom:50px;}
+    .hole { 
+      position:relative; 
+      overflow:hidden; 
+      background: transparent;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      margin:auto; 
+    }
+    .hole:after { content:''; position:absolute; bottom:0; left:0; width:100%; height:30%; background:url('dirt.png') center bottom no-repeat; background-size:contain; z-index:2;}
+    .mole, .bomb, .star, .jackpot-star, .special-mole, .time-bonus, .treasure-chest { 
+        width:100%; 
+        height:100%; 
+        position:absolute; 
+        transform: translateY(100%);
+        transition: transform 0.3s ease-out;
+        display:flex; 
+        justify-content:center; 
+        align-items:flex-end; 
+        z-index:1;
+    }
+    .mole.up, .bomb.up, .star.up, .jackpot-star.up, .special-mole.up, .time-bonus.up, .treasure-chest.up { 
+        transform: translateY(-20%);
+    }
+    .mole img, .bomb img, .star img, .jackpot-star img, .special-mole img, .time-bonus img, .treasure-chest img { width:100%; height:auto; object-fit:contain;}
+    .jackpot-star.up img { animation:pulse 1s infinite alternate;}
+    @keyframes pulse { from{transform:scale(1);} to{transform:scale(1.1);} }
+    #hammer { display:none;}
+    #game-message { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); color:white; text-shadow:2px 2px 4px black; z-index:100; opacity:0; transition:opacity 0.5s ease-in-out; pointer-events:none; }
+    #game-message h2 { font-size:36px; margin:0; }
+    #game-message.visible { opacity:1; }
+    @media (max-width: 400px) {
+      .game { gap: 8px; }
+      .info-item { font-size: 16px; }
+      #game-message h2 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <h1 id="game-title">Whack-a-Leo</h1>
+  <select id="language-select">
+    <option value="en">English</option>
+    <option value="zh">中文</option>
+    <option value="ja">日本語</option>
+  </select>
+  <div class="info-container">
+    <div id="score" class="info-item"><span data-key="score">Score:</span> 0</div>
+    <div id="level" class="info-item"><span data-key="level">Level:</span> 1</div>
+    <div id="level-goal" class="info-item"><span data-key="goal">Goal:</span> 5</div>
+    <div id="timer" class="info-item"><span data-key="time">Time:</span> 120</div>
+    <div id="lives" class="info-item"><span data-key="lives">Lives:</span> 2</div>
+  </div>
+  <button id="startBtn" data-key="startBtn">Start Game</button>
+  <button id="pauseBtn" data-key="pauseBtn">Pause / Resume</button>
+  <div id="game-message"><h2></h2></div>
+  <div id="score-change"></div>
+  <div class="game">
+    <div class="hole">
+      <div class="mole"><img src="pet_head_normal.png"></div>
+      <div class="bomb"><img src="bomb.png"></div>
+      <div class="star"><img src="star.png"></div>
+      <div class="jackpot-star"><img src="jackpot.png"></div>
+      <div class="special-mole"><img src="special.png"></div>
+      <div class="time-bonus"><img src="time.png"></div>
+      <div class="treasure-chest"><img src="treasure.png"></div>
+    </div>
+    <div class="hole">
+      <div class="mole"><img src="pet_head_normal.png"></div>
+      <div class="bomb"><img src="bomb.png"></div>
+      <div class="star"><img src="star.png"></div>
+      <div class="jackpot-star"><img src="jackpot.png"></div>
+      <div class="special-mole"><img src="special.png"></div>
+      <div class="time-bonus"><img src="time.png"></div>
+      <div class="treasure-chest"><img src="treasure.png"></div>
+    </div>
+    <div class="hole">
+      <div class="mole"><img src="pet_head_normal.png"></div>
+      <div class="bomb"><img src="bomb.png"></div>
+      <div class="star"><img src="star.png"></div>
+      <div class="jackpot-star"><img src="jackpot.png"></div>
+      <div class="special-mole"><img src="special.png"></div>
+      <div class="time-bonus"><img src="time.png"></div>
+      <div class="treasure-chest"><img src="treasure.png"></div>
+    </div>
+    <div class="hole">
+      <div class="mole"><img src="pet_head_normal.png"></div>
+      <div class="bomb"><img src="bomb.png"></div>
+      <div class="star"><img src="star.png"></div>
+      <div class="jackpot-star"><img src="jackpot.png"></div>
+      <div class="special-mole"><img src="special.png"></div>
+      <div class="time-bonus"><img src="time.png"></div>
+      <div class="treasure-chest"><img src="treasure.png"></div>
+    </div>
+    <div class="hole">
+      <div class="mole"><img src="pet_head_normal.png"></div>
+      <div class="bomb"><img src="bomb.png"></div>
+      <div class="star"><img src="star.png"></div>
+      <div class="jackpot-star"><img src="jackpot.png"></div>
+      <div class="special-mole"><img src="special.png"></div>
+      <div class="time-bonus"><img src="time.png"></div>
+      <div class="treasure-chest"><img src="treasure.png"></div>
+    </div>
+    <div class="hole">
+      <div class="mole"><img src="pet_head_normal.png"></div>
+      <div class="bomb"><img src="bomb.png"></div>
+      <div class="star"><img src="star.png"></div>
+      <div class="jackpot-star"><img src="jackpot.png"></div>
+      <div class="special-mole"><img src="special.png"></div>
+      <div class="time-bonus"><img src="time.png"></div>
+      <div class="treasure-chest"><img src="treasure.png"></div>
+    </div>
+    <div class="hole">
+      <div class="mole"><img src="pet_head_normal.png"></div>
+      <div class="bomb"><img src="bomb.png"></div>
+      <div class="star"><img src="star.png"></div>
+      <div class="jackpot-star"><img src="jackpot.png"></div>
+      <div class="special-mole"><img src="special.png"></div>
+      <div class="time-bonus"><img src="time.png"></div>
+      <div class="treasure-chest"><img src="treasure.png"></div>
+    </div>
+    <div class="hole">
+      <div class="mole"><img src="pet_head_normal.png"></div>
+      <div class="bomb"><img src="bomb.png"></div>
+      <div class="star"><img src="star.png"></div>
+      <div class="jackpot-star"><img src="jackpot.png"></div>
+      <div class="special-mole"><img src="special.png"></div>
+      <div class="time-bonus"><img src="time.png"></div>
+      <div class="treasure-chest"><img src="treasure.png"></div>
+    </div>
+    <div class="hole">
+      <div class="mole"><img src="pet_head_normal.png"></div>
+      <div class="bomb"><img src="bomb.png"></div>
+      <div class="star"><img src="star.png"></div>
+      <div class="jackpot-star"><img src="jackpot.png"></div>
+      <div class="special-mole"><img src="special.png"></div>
+      <div class="time-bonus"><img src="time.png"></div>
+      <div class="treasure-chest"><img src="treasure.png"></div>
+    </div>
+  </div>
+  <script>
+    const holes = document.querySelectorAll('.hole');
+    const scoreBoard = document.getElementById('score');
+    const levelBoard = document.getElementById('level');
+    const timerBoard = document.getElementById('timer');
+    const levelGoalBoard = document.getElementById('level-goal');
+    const livesBoard = document.getElementById('lives');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const scoreChangeDisplay = document.getElementById('score-change');
+    const languageSelect = document.getElementById('language-select');
+
+    let lastHole;
+    let timeUp = false;
+    let isPaused = false;
+    let peepTimeout;
+    let countdown;
+
+    let score = 0;
+    let level = 1;
+    let lives = 2;
+    let moleSpeed = 1000;
+    let bombChance = 0.30;
+    let starChance = 0.1; 
+    let jackpotChance = 0.05;
+    let specialMoleChance = 0;
+    let timeBonusChance = 0;
+    let treasureChance = 0;
+    let timeLeft = 120;
+    
+    let bonkSound = null;
+    let bgm = null;
+    let bombSound = null;
+    let starSound = null;
+    let jackpotSound = null;
+    let specialSound = null;
+    let treasureSound = null;
+
+    const translations = {
+        en: {
+            title: "Whack-a-Leo",
+            score: "Score:",
+            level: "Level:",
+            goal: "Goal:",
+            time: "Time:",
+            lives: "Lives:",
+            startBtn: "Start Game",
+            pauseBtn: "Pause / Resume",
+            game_over: "Game Over! Your score is: ",
+            level_up: "Level ",
+            time_up_lose_life: "Time's up! You lose a life!",
+            game_paused: "Game Paused",
+            life_up: "Lucky! +1 Life!",
+            life_down: "Too bad! -1 Life!",
+            score_up_50: "Awesome! +50 seconds!",
+            score_down_50: "Ouch! -50 points!",
+            score_down_100: "Oh no! -100 points!",
+            congratulations: "Congratulations! You completed all 50 levels!"
+        },
+        zh: {
+            title: "レオ君地獄たたき",
+            score: "分數:",
+            level: "關卡:",
+            goal: "目標:",
+            time: "時間:",
+            lives: "機會:",
+            startBtn: "開始遊戲",
+            pauseBtn: "暫停 / 繼續",
+            game_over: "遊戲結束！你的分數是：",
+            level_up: "關卡 ",
+            time_up_lose_life: "時間到！失去一次機會！",
+            game_paused: "遊戲暫停",
+            life_up: "太幸運了！增加一次機會！",
+            life_down: "太慘了！失去一次機會！",
+            score_up_50: "太棒了！時間+50秒！",
+            score_down_50: "糟糕！分數-50！",
+            score_down_100: "天啊！分數-100！",
+            congratulations: "恭喜你！你完成所有50關！"
+        },
+        ja: {
+            title: "レオ君地獄たたき",
+            score: "スコア:",
+            level: "レベル:",
+            goal: "目標:",
+            time: "時間:",
+            lives: "ライフ:",
+            startBtn: "ゲーム開始",
+            pauseBtn: "一時停止/再開",
+            game_over: "ゲームオーバー！スコア: ",
+            level_up: "レベル ",
+            time_up_lose_life: "時間切れ！ライフを一つ失いました！",
+            game_paused: "ゲーム一時停止中",
+            life_up: "ラッキー！ライフ+1！",
+            life_down: "残念！ライフ-1！",
+            score_up_50: "素晴らしい！時間+50秒！",
+            score_down_50: "痛い！スコア-50！",
+            score_down_100: "ああ！スコア-100！",
+            congratulations: "おめでとうございます！全50レベルをクリアしました！"
+        }
+    };
+
+    function setLanguage(lang) {
+        document.getElementById('game-title').textContent = translations[lang].title;
+        document.querySelector('#score span').textContent = translations[lang].score;
+        document.querySelector('#level span').textContent = translations[lang].level;
+        document.querySelector('#level-goal span').textContent = translations[lang].goal;
+        document.querySelector('#timer span').textContent = translations[lang].time;
+        document.querySelector('#lives span').textContent = translations[lang].lives;
+        document.getElementById('startBtn').textContent = translations[lang].startBtn;
+        document.getElementById('pauseBtn').textContent = translations[lang].pauseBtn;
+        
+        // Update game state text
+        scoreBoard.textContent = `${translations[lang].score} ${score}`;
+        levelBoard.textContent = `${translations[lang].level} ${level}`;
+        levelGoalBoard.textContent = `${translations[lang].goal} ${ (level < 8) ? 5 * Math.pow(2, level-1) : (5 * Math.pow(2, 7) + 300 * (level-7))}`;
+        timerBoard.textContent = `${translations[lang].time} ${timeLeft}`;
+        livesBoard.textContent = `${translations[lang].lives} ${lives}`;
+    }
+
+    function randomTime(min, max) {
+      return Math.round(Math.random() * (max - min) + min);
+    }
+
+    function randomHole(holes) {
+      const idx = Math.floor(Math.random() * holes.length);
+      const hole = holes[idx];
+      if (hole === lastHole) return randomHole(holes);
+      lastHole = hole;
+      return hole;
+    }
+
+    function peep() {
+      if (timeUp || isPaused) return;
+
+      const time = randomTime(moleSpeed * 0.4, moleSpeed * 1.5);
+      
+      holes.forEach(h => {
+        h.querySelectorAll('.mole, .bomb, .star, .jackpot-star, .special-mole, .time-bonus, .treasure-chest').forEach(el => el.classList.remove('up'));
+      });
+      
+      const availableHoles = Array.from(holes);
+      const maxItems = Math.min(9, Math.floor(level / 3) + 1);
+      const currentItems = Math.floor(Math.random() * maxItems) + 1;
+
+      for (let i = 0; i < currentItems; i++) {
+        if (availableHoles.length === 0) break;
+
+        const holeIdx = Math.floor(Math.random() * availableHoles.length);
+        const hole = availableHoles[holeIdx];
+        availableHoles.splice(holeIdx, 1);
+
+        const mole = hole.querySelector('.mole');
+        const bomb = hole.querySelector('.bomb');
+        const star = hole.querySelector('.star');
+        const jackpotStar = hole.querySelector('.jackpot-star');
+        const specialMole = hole.querySelector('.special-mole');
+        const timeBonus = hole.querySelector('.time-bonus');
+        const treasureChest = hole.querySelector('.treasure-chest');
+
+        const rand = Math.random();
+        if (level >= 10 && rand < treasureChance) treasureChest.classList.add('up');
+        else if (level >= 7 && rand < timeBonusChance) timeBonus.classList.add('up');
+        else if (level >= 8 && rand < specialMoleChance) specialMole.classList.add('up');
+        else if (level >= 5 && rand < jackpotChance) jackpotStar.classList.add('up');
+        else if (rand < starChance) star.classList.add('up');
+        else if (rand < bombChance) bomb.classList.add('up');
+        else mole.classList.add('up');
+      }
+
+      peepTimeout = setTimeout(() => {
+        holes.forEach(h => {
+          h.querySelectorAll('.mole, .bomb, .star, .jackpot-star, .special-mole, .time-bonus, .treasure-chest').forEach(el => el.classList.remove('up'));
+        });
+        peep();
+      }, time);
+    }
+
+    function openTreasureChest() {
+      const currentLang = languageSelect.value;
+      if (treasureSound) {
+        treasureSound.currentTime = 0;
+        treasureSound.play();
+      }
+
+      const outcomes = ['score_down_50', 'score_down_100', 'score_up_50', 'life_up', 'life_down'];
+      const randomOutcome = outcomes[Math.floor(Math.random() * outcomes.length)];
+
+      let message = "";
+      if (randomOutcome === 'score_down_50') {
+        score = Math.max(0, score - 50);
+        message = translations[currentLang].score_down_50;
+        updateScoreChangeDisplay(-50);
+        if (bombSound) {
+            bombSound.currentTime = 0;
+            bombSound.play();
+        }
+      } else if (randomOutcome === 'score_down_100') {
+        score = Math.max(0, score - 100);
+        message = translations[currentLang].score_down_100;
+        updateScoreChangeDisplay(-100);
+        if (bombSound) {
+            bombSound.currentTime = 0;
+            bombSound.play();
+        }
+      } else if (randomOutcome === 'score_up_50') {
+        timeLeft += 50;
+        timerBoard.textContent = `${translations[currentLang].time} ${timeLeft}`;
+        message = translations[currentLang].score_up_50;
+        updateScoreChangeDisplay("+50s");
+        if (starSound) {
+            starSound.currentTime = 0;
+            starSound.play();
+        }
+      } else if (randomOutcome === 'life_up') {
+        lives++;
+        livesBoard.textContent = `${translations[currentLang].lives} ${lives}`;
+        message = translations[currentLang].life_up;
+        updateScoreChangeDisplay("+1機會");
+        if (starSound) {
+            starSound.currentTime = 0;
+            starSound.play();
+        }
+      } else if (randomOutcome === 'life_down') {
+        lives--;
+        livesBoard.textContent = `${translations[currentLang].lives} ${lives}`;
+        message = translations[currentLang].life_down;
+        updateScoreChangeDisplay("-1機會");
+        if (bombSound) {
+            bombSound.currentTime = 0;
+            bombSound.play();
+        }
+        if(lives <= 0){
+          handleTimeUp();
+        }
+      }
+      displayMessage(message,2000);
+      scoreBoard.textContent = `${translations[currentLang].score} ${score}`;
+    }
+
+    function startLevel() {
+      const currentLang = languageSelect.value;
+      timerBoard.textContent = `${translations[currentLang].time} ${timeLeft}`;
+      livesBoard.textContent = `${translations[currentLang].lives} ${lives}`;
+
+      countdown = setInterval(() => {
+        if(!isPaused){
+          timeLeft--;
+          timerBoard.textContent = `${translations[currentLang].time} ${timeLeft}`;
+          if(timeLeft <= 0){
+            handleTimeUp();
+          }
+        }
+      },1000);
+    }
+
+    function handleTimeUp(){
+      const currentLang = languageSelect.value;
+      if(lives > 0){
+        lives--;
+        livesBoard.textContent = `${translations[currentLang].lives} ${lives}`;
+        displayMessage(translations[currentLang].time_up_lose_life, 2000);
+        stopLevel();
+        setTimeout(() => {
+          timeLeft = 120;
+          timeUp = false;
+          peep();
+          startLevel();
+          if (bgm) {
+            bgm.currentTime = 0;
+            bgm.play();
+          }
+        }, 2500); 
+      } else {
+        stopLevel();
+        displayMessage(`${translations[currentLang].game_over} ${score}`, 3000);
+        startBtn.disabled = false;
+        if (bgm) bgm.pause();
+      }
+    }
+    
+    function stopLevel() {
+      clearInterval(countdown);
+      clearTimeout(peepTimeout);
+      timeUp = true;
+      holes.forEach(hole => {
+        hole.querySelectorAll('.mole, .bomb, .star, .jackpot-star, .special-mole, .time-bonus, .treasure-chest').forEach(el => el.classList.remove('up'));
+      });
+    }
+
+    function startGame() {
+      bonkSound = new Audio('bonk.mp3');
+      bgm = new Audio('bgm.mp3');
+      bombSound = new Audio('bomb.mp3');
+      starSound = new Audio('star.mp3');
+      jackpotSound = new Audio('jackpot.mp3');
+      specialSound = new Audio('special.mp3');
+      treasureSound = new Audio('treasure_open.mp3');
+
+      const currentLang = languageSelect.value;
+      if (bgm) bgm.loop = true;
+
+      score = 0; level = 1; lives = 2; moleSpeed = 1000;
+      bombChance = 0.30; starChance=0.1; jackpotChance=0.05;
+      specialMoleChance = 0; timeBonusChance = 0; treasureChance = 0;
+      timeLeft = 120; timeUp=false; isPaused=false;
+
+      scoreBoard.textContent = `${translations[currentLang].score} ${score}`;
+      levelBoard.textContent = `${translations[currentLang].level} ${level}`;
+      
+      const scoreGoal = (level < 8) ? 5 * Math.pow(2, level-1) : (5 * Math.pow(2, 7) + 300 * (level-7));
+      levelGoalBoard.textContent = `${translations[currentLang].goal} ${scoreGoal}`;
+      
+      livesBoard.textContent = `${translations[currentLang].lives} ${lives}`;
+      startBtn.disabled = true;
+
+      peep();
+      startLevel();
+      if (bgm) {
+        bgm.currentTime = 0;
+        bgm.play();
+      }
+    }
+
+    function checkLevelUp() {
+      const currentLang = languageSelect.value;
+      const scoreGoal = (level < 8) ? 5 * Math.pow(2, level-1) : (5 * Math.pow(2, 7) + 300 * (level-7));
+
+      if(score >= scoreGoal && level < 50){
+        level++;
+        displayMessage(`${translations[currentLang].level_up} ${level}`,2000);
+        score = 0;
+        scoreBoard.textContent = `${translations[currentLang].score} ${score}`;
+        levelBoard.textContent = `${translations[currentLang].level} ${level}`;
+        
+        const nextScoreGoal = (level < 8) ? 5 * Math.pow(2, level-1) : (5 * Math.pow(2, 7) + 300 * (level-7));
+        levelGoalBoard.textContent = `${translations[currentLang].goal} ${nextScoreGoal}`;
+        
+        if(level > 7) moleSpeed = Math.max(200, moleSpeed - 100);
+        
+        bombChance = Math.min(0.8, bombChance + 0.05);
+        
+        if(level >= 7) jackpotChance = Math.min(0.3, jackpotChance+0.05);
+
+        if(level >= 7) timeBonusChance = Math.min(0.15, timeBonusChance+0.01);
+        
+        if(level >= 8) specialMoleChance = Math.min(0.3, specialMoleChance+0.05);
+        
+        if(level >= 10) treasureChance = Math.min(0.2, treasureChance+0.02);
+
+        stopLevel();
+        setTimeout(() => {
+          timeLeft = 120;
+          timeUp = false;
+          peep();
+          startLevel();
+          if (bgm) {
+            bgm.currentTime = 0;
+            bgm.play();
+          }
+        }, 2500);
+      } else if(score >= scoreGoal && level ===50){
+        displayMessage(translations[currentLang].congratulations,3000);
+        stopLevel();
+        startBtn.disabled = false;
+        if (bgm) bgm.pause();
+      }
+    }
+
+    function bonk(e){
+      const currentLang = languageSelect.value;
+      const target = e.target.closest('.mole, .bomb, .star, .jackpot-star, .special-mole, .time-bonus, .treasure-chest');
+      if(!target || !target.classList.contains('up') || isPaused) return;
+      e.preventDefault();
+      
+      if(target.classList.contains('mole')){
+        const moleImg = target.querySelector('img');
+        moleImg.src = "pet_head_bonked.png";
+        score++;
+        if (bonkSound) {
+            bonkSound.currentTime = 0; 
+            bonkSound.play();
+        }
+        updateScoreChangeDisplay(1); 
+        target.classList.remove('up');
+        setTimeout(()=>{moleImg.src="pet_head_normal.png";},1000);
+      } else if(target.classList.contains('bomb')){
+        score = Math.max(0, score-5);
+        updateScoreChangeDisplay(-5);
+        if (bombSound) {
+            bombSound.currentTime = 0;
+            bombSound.play();
+        }
+        target.classList.remove('up');
+      } else if(target.classList.contains('star')){
+        score +=5;
+        if (starSound) {
+            starSound.currentTime = 0; 
+            starSound.play();
+        }
+        updateScoreChangeDisplay(5);
+        target.classList.remove('up');
+      } else if(target.classList.contains('jackpot-star')){
+        score +=50;
+        if (jackpotSound) {
+            jackpotSound.currentTime=0; 
+            jackpotSound.play();
+        }
+        updateScoreChangeDisplay(50);
+        target.classList.remove('up');
+      } else if(target.classList.contains('special-mole')){
+        score +=200;
+        if (specialSound) {
+            specialSound.currentTime=0; 
+            specialSound.play();
+        }
+        updateScoreChangeDisplay(200);
+        target.classList.remove('up');
+      } else if(target.classList.contains('time-bonus')){
+        timeLeft +=20;
+        timerBoard.textContent = `${translations[currentLang].time} ${timeLeft}`;
+        updateScoreChangeDisplay("+20s");
+        target.classList.remove('up');
+      } else if(target.classList.contains('treasure-chest')){
+        openTreasureChest();
+        target.classList.remove('up');
+      }
+
+      scoreBoard.textContent = `${translations[currentLang].score} ${score}`;
+      const scoreGoal = (level < 8) ? 5 * Math.pow(2, level-1) : (5 * Math.pow(2, 7) + 300 * (level-7));
+      if(score >= scoreGoal) checkLevelUp();
+    }
+
+    function displayMessage(text,duration){
+      const msg = document.getElementById('game-message');
+      msg.querySelector('h2').textContent = text;
+      msg.classList.add('visible');
+      setTimeout(()=>{msg.classList.remove('visible');},duration);
+    }
+
+    function updateScoreChangeDisplay(amount){
+      const displayAmount = typeof amount==='number'? (amount>0? "+" : "")+amount : amount;
+      scoreChangeDisplay.textContent = displayAmount;
+      scoreChangeDisplay.classList.remove('positive','negative');
+      if(typeof amount==='number'){
+        if(amount>0) scoreChangeDisplay.classList.add('positive');
+        else if(amount<0) scoreChangeDisplay.classList.add('negative');
+      } else scoreChangeDisplay.classList.add('positive');
+
+      scoreChangeDisplay.style.opacity=1;
+      setTimeout(()=>{scoreChangeDisplay.style.opacity=0;},1500);
+    }
+
+    function togglePause(){
+      const currentLang = languageSelect.value;
+      isPaused=!isPaused;
+      if(isPaused){
+        pauseBtn.textContent=translations[currentLang].pauseBtn.split(' / ')[1];
+        clearTimeout(peepTimeout);
+        clearInterval(countdown);
+        displayMessage(translations[currentLang].game_paused,99999);
+        holes.forEach(hole => {
+          hole.querySelectorAll('.mole, .bomb, .star, .jackpot-star, .special-mole, .time-bonus, .treasure-chest').forEach(el => el.classList.remove('up'));
+        });
+        if (bgm) bgm.pause();
+      }else{
+        pauseBtn.textContent=translations[currentLang].pauseBtn.split(' / ')[0];
+        peep();
+        startLevel();
+        document.getElementById('game-message').classList.remove('visible');
+        if (bgm) bgm.play();
+      }
+    }
+
+    startBtn.addEventListener('click', startGame);
+    pauseBtn.addEventListener('click', togglePause);
+    holes.forEach(hole => {
+      hole.addEventListener('click', bonk);
+      hole.addEventListener('touchstart', bonk);
+    });
+
+    languageSelect.addEventListener('change', (e) => {
+        setLanguage(e.target.value);
+    });
+    
+    // Initial language setup
+    setLanguage('en');
+  </script>
+</body>
+</html>
